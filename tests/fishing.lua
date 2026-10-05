@@ -1,5 +1,26 @@
 local H = ...
 
+for _, channelOnly in ipairs({ false, true }) do
+	H.test("catch before stop preserves the previous miss " .. tostring(channelOnly), function()
+		local w, FK, stats = H.stats()
+		w:cast()
+		w:stop()
+		w:advance(1)
+		w:cast(channelOnly)
+		w:catch(false)
+		H.eq(stats:GetSessionStats().casts, 2)
+		H.eq(stats:GetSessionStats().gotAway, 1)
+		w:stop()
+		w:event("LOOT_CLOSED")
+		H.eq(FK.State.isFishing, false, "the new catch closes its own cast")
+		w:cast()
+		w:advance(1)
+		H.eq(stats:GetSessionStats().casts, 2)
+		H.eq(stats:GetSessionStats().catches, 1)
+		H.eq(FK.chardb.stats.totalGotAway, 1)
+	end)
+end
+
 H.test("rapid recasts keep both catches", function()
 	local w, FK, stats = H.stats()
 	w:cast()

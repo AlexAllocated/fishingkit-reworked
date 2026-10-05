@@ -785,6 +785,9 @@ end
 
 local function StartFishingCast()
     FK.State.castGen = (FK.State.castGen or 0) + 1
+    -- An already-open loot window retains its own generation. An old stop or
+    -- missed cast must not claim the next window just because loot arrives first.
+    FK.State.lootCastGen = nil
     FK.State.isFishing = true
     FK.State.castStartTime = GetTime()
     FK.State.channelStarted = false
