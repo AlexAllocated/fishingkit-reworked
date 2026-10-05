@@ -399,7 +399,7 @@ function FK:RestoreBackup()
     local savedBackupTime = FK.db.lastBackupTime
 
     for k, v in pairs(savedBackup) do
-        FK.db[k] = v
+        FK.db[k] = type(v) == "table" and FK:TableCopy(v) or v
     end
     FK.db.backup = savedBackup
     FK.db.lastBackupTime = savedBackupTime
@@ -407,7 +407,7 @@ function FK:RestoreBackup()
     -- Restore char DB
     if savedCharBackup then
         for k, v in pairs(savedCharBackup) do
-            FK.chardb[k] = v
+            FK.chardb[k] = type(v) == "table" and FK:TableCopy(v) or v
         end
         FK.chardb.backup = savedCharBackup
     end
