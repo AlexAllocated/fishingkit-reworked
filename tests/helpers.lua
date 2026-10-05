@@ -96,6 +96,7 @@ function H.new()
 		fishingLoot = true,
 		cvars = {},
 		cvarWrites = 0,
+		bindings = {},
 	}
 	local env = setmetatable({}, { __index = _G })
 	env._G = env
@@ -146,8 +147,23 @@ function H.new()
 		return {}
 	end
 	env.UIParent = frame()
-	env.CreateFrame = function(_, name)
+	env.InCombatLockdown = function() return w.combat or false end
+	env.GameTooltip = { HookScript = function() end }
+	env.SetOverrideBindingClick = function(owner, _, key, button)
+		assert(not w.combat, "insecure binding write in combat")
+		w.bindings[owner] = { key = key, button = button }
+	end
+	env.ClearOverrideBindings = function(owner)
+		assert(not w.combat, "insecure binding cleanup in combat")
+		w.bindings[owner] = nil
+	end
+	env.CreateFrame = function(_, name, parent, template)
 		local f = frame()
+		f.attrs = {}
+		function f:SetAttribute(key, value)
+			assert(not w.combat or not (template and template:find("Secure")), "insecure attribute write in combat")
+			self.attrs[key] = value
+		end
 		w.frames[#w.frames + 1] = f
 		if name then
 			env[name] = f
