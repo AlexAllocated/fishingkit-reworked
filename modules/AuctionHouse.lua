@@ -33,7 +33,18 @@ local scan = {
     waitingForResults = false,
     currentFish      = nil,
     currentItemID    = nil,
+    query            = nil,   -- unique token for the current query, across scans
+    throttleTicker   = nil,
 }
+
+local function ClearPendingQuery()
+    scan.query = nil
+    scan.waitingForResults = false
+    if scan.throttleTicker then
+        scan.throttleTicker:Cancel()
+        scan.throttleTicker = nil
+    end
+end
 
 local tab = {
     created    = false,
@@ -368,6 +379,7 @@ end
 
 function AH:ScanNext()
     if not scan.active then return end
+    ClearPendingQuery()
 
     scan.currentIndex = scan.currentIndex + 1
     local entry = scan.queue[scan.currentIndex]
@@ -386,6 +398,7 @@ function AH:ScanNext()
 
     scan.currentFish   = entry.fishName
     scan.currentItemID = entry.itemID
+    scan.query = {}
 
     if not CanSendAuctionQuery() then
         AH:WaitForThrottle()
@@ -396,12 +409,13 @@ function AH:ScanNext()
 end
 
 function AH:WaitForThrottle()
+    local query = scan.query
     local attempts    = 0
     local maxAttempts = 15
     local ticker
     ticker = C_Timer.NewTicker(0.2, function()
         attempts = attempts + 1
-        if not scan.active then
+        if not scan.active or scan.query ~= query then
             ticker:Cancel()
             return
         end
@@ -421,6 +435,7 @@ function AH:WaitForThrottle()
             AH:ScanNext()
         end
     end)
+    scan.throttleTicker = ticker
 end
 
 function AH:SendQuery()
@@ -432,7 +447,7 @@ function AH:SendQuery()
 
     local idx      = scan.currentIndex
     local fishName = scan.currentFish
-    local itemID   = scan.currentItemID
+    local query    = scan.query
 
     scan.waitingForResults = true
     SortAuctionSetSort("list", "unitprice")
@@ -440,7 +455,7 @@ function AH:SendQuery()
 
     -- Safety timeout in case AUCTION_ITEM_LIST_UPDATE never fires
     C_Timer.After(3, function()
-        if scan.waitingForResults and scan.active then
+        if scan.active and scan.query == query and scan.waitingForResults then
             FK:Debug("AH scan [" .. idx .. "/" .. #scan.queue .. "]: timeout waiting for \"" .. fishName .. "\"")
             scan.waitingForResults  = false
             scan.results.throttled = scan.results.throttled + 1
@@ -494,6 +509,7 @@ end
 
 function AH:Finish()
     if not scan.active then return end
+    ClearPendingQuery()
     scan.active            = false
     scan.waitingForResults = false
 
